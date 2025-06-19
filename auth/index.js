@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const fs = require('fs');
 const open = (...args) => import('open').then(mod => mod.default(...args));
 require('dotenv').config();
 
@@ -40,8 +41,7 @@ app.get('/callback', async (req, res) => {
     const { access_token, refresh_token } = response.data;
 
     // Store tokens
-    const fs = require('fs');
-    fs.writeFileSync('refresh_token.txt', refresh_token, 'utf8');
+    fs.writeFileSync('tokens/refresh_token.txt', refresh_token, 'utf8');
     console.log('Access Token:', access_token);
     console.log('Refresh Token saved to file.');
 
@@ -52,6 +52,75 @@ app.get('/callback', async (req, res) => {
     res.send('Error retrieving tokens.');
   }
 });
+
+const refreshAccessToken = require('./refreshAccessToken');
+
+app.get('/currently-playing', async (req, res) => {
+  const fs = require('fs');
+  const axios = require('axios');
+
+  let access_token = fs.readFileSync('tokens/access_token.txt', 'utf8');
+
+  async function fetchSpotifyTrack(token) {
+    return axios.get('https://api.spotify.com/v1/me/player/currently-playing', {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 1000
+    });
+  }
+
+  try {
+    let response = await fetchSpotifyTrack(access_token);
+
+    // Handle no song playing
+    if (response.status === 204 || !response.data?.item) {
+      return res.status(204).json({ message: 'No track playing' });
+    }
+
+    const track = response.data.item;
+    res.json({
+      name: track.name,
+      artist: track.artists.map(a => a.name).join(', '),
+      albumCover: track.album.images[0]?.url,
+      isPlaying: response.data.is_playing,
+      progressMs: response.data.progress_ms,
+      durationMs: track.duration_ms
+    });
+
+  } catch (err) {
+    if (err.response && err.response.status === 401) {
+      console.log('Token expired, refreshing...');
+
+      const newToken = await refreshAccessToken();
+      if (!newToken) return res.status(500).json({ error: 'Could not refresh token' });
+
+      try {
+        const response = await fetchSpotifyTrack(newToken);
+        if (response.status === 204 || !response.data?.item) {
+          return res.status(204).json({ message: 'No track playing' });
+        }
+
+        const track = response.data.item;
+        return res.json({
+          name: track.name,
+          artist: track.artists.map(a => a.name).join(', '),
+          albumCover: track.album.images[0]?.url,
+          isPlaying: response.data.is_playing,
+          progressMs: response.data.progress_ms,
+          durationMs: track.duration_ms
+        });
+
+      } catch (secondErr) {
+        console.error('Retry after refresh failed:', secondErr.message);
+        return res.status(500).json({ error: 'Failed after token refresh' });
+      }
+
+    } else {
+      console.error('Error calling Spotify:', err.response?.data || err.message);
+      return res.status(500).json({ error: 'Unexpected error' });
+    }
+  }
+});
+
 
 app.listen(port, () => {
   console.log(`Listening at http://127.0.0.1:${port}`);

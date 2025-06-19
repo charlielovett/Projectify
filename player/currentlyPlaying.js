@@ -35,4 +35,4 @@ async function getCurrentlyPlaying() {
 }
 
 getCurrentlyPlaying();
-setInterval(getCurrentlyPlaying, 5000); // every 5 seconds
+setInterval(getCurrentlyPlaying, 1000); // every 5 seconds
