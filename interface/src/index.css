@@ -13,6 +13,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+h1, h2, p {
+  margin: 0;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
@@ -52,6 +56,55 @@ button:hover {
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* default for inner items */
+  justify-content: center; /* optional if you want top and bottom spaced */
+  gap: 8px;
+}
+
+.centered {
+  align-self: center; /* overrides parent's align-items */
+}
+
+input[type=range] {
+  -webkit-appearance: none; /* Hides the slider so that custom slider can be made */
+  width: 100%; /* Specific width is required for Firefox. */
+  background: transparent; /* Otherwise white in Chrome */
+  --range-progress: 50%; /* default fallback */
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+}
+
+input[type=range]:focus {
+  outline: none;
+}
+
+/* Special styling for WebKit */
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 6px;
+  width: 6px;
+  border-radius: 3px;
+  background: #212121;
+  margin-top: -2px;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 2px;
+  background: #212121;
+  border-radius: 1px;
+  background: linear-gradient(
+    to right,
+    #212121 var(--range-progress),
+    #ccc var(--range-progress)
+  );
 }
 
 @media (prefers-color-scheme: light) {

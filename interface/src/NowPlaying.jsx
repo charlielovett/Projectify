@@ -49,22 +49,54 @@ export default function NowPlaying() {
   }, []);
 
   if (!track) return <p>No song currently playing</p>;
-  if (!track.isPlaying) return <p>⏸ Playback is paused</p>;
 
   const percentage = (progressMs / track.durationMs) * 100;
 
   return (
-    <div>
-      <img src={track.albumCover} alt="Album cover" style={{ width: 200, height: 200 }} />
-      <h2>{track.name}</h2>
-      <p>{track.artist}</p>
+    <div className="content-wrapper">
+      <div style={{ position: 'relative', width: 300, height: 300 }} className="centered">
+        <img
+          src={track.albumCover}
+          alt="Album cover"
+          style={{ width: 300, height: 300, display: 'block' }}
+        />
+
+        {!track.isPlaying && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: 'rgba(0, 0, 0, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontSize: '48px',
+              pointerEvents: 'none', // optional: so it doesn't block mouse clicks
+            }}
+          >
+            ▶
+          </div>
+        )}
+      </div>
+
+      <h2 style={{ margin: 0 }}>{track.name}</h2>
+      <p style={{ margin: 0 }}>{track.artist}</p>
+
       <input
+        className="centered"
         type="range"
         min={0}
         max={100}
         value={percentage}
         readOnly
-        style={{ width: 300 }}
+        style={{
+          '--range-progress': `${percentage}%`,
+          width: 300,
+        }}
       />
     </div>
   );
