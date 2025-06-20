@@ -7,7 +7,7 @@ require('dotenv').config();
 const app = express();
 const port = 8888;
 
-const scopes = 'user-read-currently-playing user-read-playback-state';
+const scopes = 'user-read-currently-playing user-read-playback-state user-top-read';
 
 app.get('/login', (req, res) => {
   const authUrl = `https://accounts.spotify.com/authorize?` +
@@ -121,6 +121,40 @@ app.get('/currently-playing', async (req, res) => {
   }
 });
 
+app.get('/lastfm/top-artists', async (req, res) => {
+  const username = req.query.username; // e.g., ?username=charlielovett
+  const apiKey = process.env.LASTFM_API_KEY;
+
+  if (!username || !apiKey) {
+    return res.status(400).json({ error: 'Missing username or API key' });
+  }
+
+  try {
+    const { data } = await axios.get('https://ws.audioscrobbler.com/2.0/', {
+      params: {
+        method: 'user.gettopartists',
+        user: username,
+        api_key: apiKey,
+        format: 'json',
+        limit: 20,
+        period: '1month' // Can also be 'overall', '7day', '3month', etc.
+      }
+    });
+
+    const artists = data.topartists.artist.map((artist, index) => ({
+      name: artist.name,
+      playcount: parseInt(artist.playcount, 10),
+      image: artist.image.find(img => img.size === 'large')?.['#text'] || null,
+      rank: index + 1,
+      url: artist.url
+    }));
+
+    res.json(artists);
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).json({ error: 'Failed to fetch data from Last.fm' });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Listening at http://127.0.0.1:${port}`);
