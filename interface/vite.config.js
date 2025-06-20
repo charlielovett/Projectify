@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/currently-playing': 'http://127.0.0.1:8888'
+      '/currently-playing': 'http://127.0.0.1:8888',
+      '/lastfm': 'http://localhost:8888',
     }
   }
 })

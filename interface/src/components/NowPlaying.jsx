@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export default function NowPlaying() {
+const NowPlaying = () => {
   const [track, setTrack] = useState(null);
   const [progressMs, setProgressMs] = useState(0);
 
@@ -101,3 +101,5 @@ export default function NowPlaying() {
     </div>
   );
 }
+
+export default NowPlaying;

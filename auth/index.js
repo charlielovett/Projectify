@@ -55,6 +55,39 @@ app.get('/callback', async (req, res) => {
 
 const refreshAccessToken = require('./refreshAccessToken');
 
+async function getSpotifyArtistData(artistNames, accessToken) {
+  const results = [];
+
+  for (const name of artistNames) {
+    try {
+      const query = encodeURIComponent(name);
+      const res = await axios.get(`https://api.spotify.com/v1/search?q=${query}&type=artist&limit=1`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+
+      const artist = res.data.artists.items[0];
+
+      if (artist) {
+        results.push({
+          name,
+          image: artist.images?.[0]?.url || null,
+          url: artist.external_urls.spotify,
+          spotifyId: artist.id
+        });
+      } else {
+        results.push({ name, image: null, url: null, spotifyId: null });
+      }
+    } catch (err) {
+      console.error(`Error fetching Spotify data for ${name}:`, err.message);
+      results.push({ name, image: null, url: null, spotifyId: null });
+    }
+  }
+
+  return results;
+}
+
 app.get('/currently-playing', async (req, res) => {
   const fs = require('fs');
   const axios = require('axios');
@@ -122,7 +155,7 @@ app.get('/currently-playing', async (req, res) => {
 });
 
 app.get('/lastfm/top-artists', async (req, res) => {
-  const username = req.query.username; // e.g., ?username=charlielovett
+  const username = req.query.username;
   const apiKey = process.env.LASTFM_API_KEY;
 
   if (!username || !apiKey) {
@@ -130,6 +163,7 @@ app.get('/lastfm/top-artists', async (req, res) => {
   }
 
   try {
+    // Step 1: Fetch top artists from Last.fm
     const { data } = await axios.get('https://ws.audioscrobbler.com/2.0/', {
       params: {
         method: 'user.gettopartists',
@@ -137,22 +171,41 @@ app.get('/lastfm/top-artists', async (req, res) => {
         api_key: apiKey,
         format: 'json',
         limit: 20,
-        period: '1month' // Can also be 'overall', '7day', '3month', etc.
+        period: '1month'
       }
     });
 
-    const artists = data.topartists.artist.map((artist, index) => ({
+    const lastfmArtists = data.topartists.artist.map((artist, index) => ({
       name: artist.name,
       playcount: parseInt(artist.playcount, 10),
-      image: artist.image.find(img => img.size === 'large')?.['#text'] || null,
       rank: index + 1,
-      url: artist.url
+      lastfmUrl: artist.url
     }));
 
-    res.json(artists);
+    // Step 2: Fetch Spotify access token from file or refresh if needed
+    let accessToken = fs.readFileSync('tokens/access_token.txt', 'utf8');
+    let spotifyResults = await getSpotifyArtistData(lastfmArtists.map(a => a.name), accessToken);
+
+    // If token is bad or expired (all nulls), try refreshing
+    if (spotifyResults.every(r => r.image === null)) {
+      console.log('Refreshing token and retrying Spotify API...');
+      accessToken = await refreshAccessToken();
+      if (!accessToken) return res.status(500).json({ error: 'Could not refresh token' });
+      spotifyResults = await getSpotifyArtistData(lastfmArtists.map(a => a.name), accessToken);
+    }
+
+    // Step 3: Merge results
+    const enriched = lastfmArtists.map((artist, i) => ({
+      ...artist,
+      spotifyImage: spotifyResults[i]?.image || null,
+      spotifyUrl: spotifyResults[i]?.url || null,
+      spotifyId: spotifyResults[i]?.spotifyId || null
+    }));
+
+    res.json(enriched);
   } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).json({ error: 'Failed to fetch data from Last.fm' });
+    console.error('Error in /lastfm/top-artists:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Failed to fetch artist data' });
   }
 });
 
