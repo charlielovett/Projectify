@@ -42,7 +42,6 @@ app.get('/callback', async (req, res) => {
 
     // Store tokens
     fs.writeFileSync('tokens/refresh_token.txt', refresh_token, 'utf8');
-    console.log('Access Token:', access_token);
     console.log('Refresh Token saved to file.');
 
 
@@ -89,38 +88,39 @@ async function getSpotifyArtistData(artistNames, accessToken) {
 }
 
 app.get('/currently-playing', async (req, res) => {
-  const fs = require('fs');
-  const axios = require('axios');
+  const readToken = () => fs.readFileSync('tokens/access_token.txt', 'utf8');
 
-  let access_token = fs.readFileSync('tokens/access_token.txt', 'utf8');
-
-  async function fetchSpotifyTrack(token) {
+  const fetchSpotifyTrack = async (token) => {
     return axios.get('https://api.spotify.com/v1/me/player/currently-playing', {
       headers: { Authorization: `Bearer ${token}` },
       timeout: 1000
     });
-  }
+  };
+
+  const formatTrackData = (data) => {
+    const track = data.item;
+    return {
+      name: track.name,
+      artist: track.artists.map(a => a.name).join(', '),
+      albumCover: track.album.images[0]?.url,
+      isPlaying: data.is_playing,
+      progressMs: data.progress_ms,
+      durationMs: track.duration_ms
+    };
+  };
 
   try {
-    let response = await fetchSpotifyTrack(access_token);
+    let accessToken = readToken();
+    let response = await fetchSpotifyTrack(accessToken);
 
-    // Handle no song playing
     if (response.status === 204 || !response.data?.item) {
       return res.status(204).json({ message: 'No track playing' });
     }
 
-    const track = response.data.item;
-    res.json({
-      name: track.name,
-      artist: track.artists.map(a => a.name).join(', '),
-      albumCover: track.album.images[0]?.url,
-      isPlaying: response.data.is_playing,
-      progressMs: response.data.progress_ms,
-      durationMs: track.duration_ms
-    });
+    return res.json(formatTrackData(response.data));
 
   } catch (err) {
-    if (err.response && err.response.status === 401) {
+    if (err.response?.status === 401) {
       console.log('Token expired, refreshing...');
 
       const newToken = await refreshAccessToken();
@@ -132,16 +132,7 @@ app.get('/currently-playing', async (req, res) => {
           return res.status(204).json({ message: 'No track playing' });
         }
 
-        const track = response.data.item;
-        return res.json({
-          name: track.name,
-          artist: track.artists.map(a => a.name).join(', '),
-          albumCover: track.album.images[0]?.url,
-          isPlaying: response.data.is_playing,
-          progressMs: response.data.progress_ms,
-          durationMs: track.duration_ms
-        });
-
+        return res.json(formatTrackData(response.data));
       } catch (secondErr) {
         console.error('Retry after refresh failed:', secondErr.message);
         return res.status(500).json({ error: 'Failed after token refresh' });

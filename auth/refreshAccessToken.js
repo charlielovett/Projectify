@@ -21,7 +21,7 @@ async function refreshAccessToken() {
     );
 
     const newAccessToken = response.data.access_token;
-    console.log('Refreshed Access Token:', newAccessToken);
+    console.log('Refreshed Access Token');
 
     // Save it to a file for now
     fs.writeFileSync('tokens/access_token.txt', newAccessToken, 'utf8');
