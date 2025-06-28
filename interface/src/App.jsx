@@ -6,8 +6,8 @@ import ArtistCloud from './components/ArtistCloud';
 function App() {
   return (
     <div className="App">
-      <NowPlaying />
-      {/* <ArtistCloud /> */}
+      {/* <NowPlaying /> */}
+      <ArtistCloud />
     </div>
   );
 }

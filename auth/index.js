@@ -54,37 +54,35 @@ app.get('/callback', async (req, res) => {
 
 const refreshAccessToken = require('./refreshAccessToken');
 
-async function getSpotifyArtistData(artistNames, accessToken) {
-  const results = [];
-
-  for (const name of artistNames) {
-    try {
-      const query = encodeURIComponent(name);
-      const res = await axios.get(`https://api.spotify.com/v1/search?q=${query}&type=artist&limit=1`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      });
-
-      const artist = res.data.artists.items[0];
-
-      if (artist) {
-        results.push({
-          name,
-          image: artist.images?.[0]?.url || null,
-          url: artist.external_urls.spotify,
-          spotifyId: artist.id
-        });
-      } else {
-        results.push({ name, image: null, url: null, spotifyId: null });
+async function getSpotifyArtistByName(name, accessToken) {
+  try {
+    const query = encodeURIComponent(name);
+    const res = await axios.get(`https://api.spotify.com/v1/search?q=${query}&type=artist&limit=5`, {
+      headers: {
+        Authorization: `Bearer ${accessToken()}`
       }
-    } catch (err) {
-      console.error(`Error fetching Spotify data for ${name}:`, err.message);
-      results.push({ name, image: null, url: null, spotifyId: null });
+    });
+
+    const artist = res.data.artists.items[0];
+
+    return (artist)
+      ? {
+        name,
+        image: artist.images?.[0]?.url || null,
+        url: artist.external_urls.spotify,
+        spotifyId: artist.id
+      } : { name, image: null, url: null, spotifyId: null };
+  } catch (err) {
+    if (err.response?.status === 401) {
+      console.log(`Token expired while fetching ${name}, refreshing...`);
+      token = await refreshAccessToken();
+      if (!token) throw new Error('Failed to refresh token');
+      return getSpotifyArtistByName(name, () => token);
+    } else {
+      console.error(`Error fetching ${name}:`, err.message);
+      return { name, image: null, url: null, spotifyId: null };
     }
   }
-
-  return results;
 }
 
 app.get('/currently-playing', async (req, res) => {
@@ -154,7 +152,7 @@ app.get('/lastfm/top-artists', async (req, res) => {
   }
 
   try {
-    // Step 1: Fetch top artists from Last.fm
+    // Fetch top artists from Last.fm
     const { data } = await axios.get('https://ws.audioscrobbler.com/2.0/', {
       params: {
         method: 'user.gettopartists',
@@ -173,25 +171,20 @@ app.get('/lastfm/top-artists', async (req, res) => {
       lastfmUrl: artist.url
     }));
 
-    // Step 2: Fetch Spotify access token from file or refresh if needed
-    let accessToken = fs.readFileSync('tokens/access_token.txt', 'utf8');
-    let spotifyResults = await getSpotifyArtistData(lastfmArtists.map(a => a.name), accessToken);
+    // Fetch Spotify access token from file
+    const getAccessToken = () => fs.readFileSync('tokens/access_token.txt', 'utf8');
 
-    // If token is bad or expired (all nulls), try refreshing
-    if (spotifyResults.every(r => r.image === null)) {
-      console.log('Refreshing token and retrying Spotify API...');
-      accessToken = await refreshAccessToken();
-      if (!accessToken) return res.status(500).json({ error: 'Could not refresh token' });
-      spotifyResults = await getSpotifyArtistData(lastfmArtists.map(a => a.name), accessToken);
+    // Match Last.fm artists using normalized names
+    const enriched = [];
+    for (const artist of lastfmArtists) {
+      const spotifyArtistData = await getSpotifyArtistByName(artist.name, getAccessToken);
+      enriched.push({
+        ...artist,
+        spotifyImage: spotifyArtistData.image,
+        spotifyUrl: spotifyArtistData.url,
+        spotifyId: spotifyArtistData.spotifyId,
+      });
     }
-
-    // Step 3: Merge results
-    const enriched = lastfmArtists.map((artist, i) => ({
-      ...artist,
-      spotifyImage: spotifyResults[i]?.image || null,
-      spotifyUrl: spotifyResults[i]?.url || null,
-      spotifyId: spotifyResults[i]?.spotifyId || null
-    }));
 
     res.json(enriched);
   } catch (err) {
