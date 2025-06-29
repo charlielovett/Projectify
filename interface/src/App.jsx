@@ -1,4 +1,5 @@
 import './App.css'
+import './index.css';
 
 import NowPlaying from './components/NowPlaying';
 import ArtistCloud from './components/ArtistCloud';

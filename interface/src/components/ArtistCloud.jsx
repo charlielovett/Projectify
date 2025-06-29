@@ -50,16 +50,6 @@ const TopArtists = () => {
                 .attr("cy", 0);
         });
 
-        // const tooltip = d3.select(svgRef.current.parentElement)
-        //     .append("div")
-        //     .attr("class", "tooltip")
-        //     .style("position", "absolute")
-        //     .style("opacity", 0)
-        //     .style("background", "white")
-        //     .style("border", "1px solid black")
-        //     .style("border-radius", "4px")
-        //     .style("padding", "6px");
-
         const size = d3.scaleSqrt()
             .domain([d3.min(artists, d => +d.playcount), d3.max(artists, d => +d.playcount)])
             .range([15, 100]);
@@ -77,7 +67,6 @@ const TopArtists = () => {
             .attr("height", d => size(+d.playcount) * 2)
             .attr("x", d => -size(+d.playcount))
             .attr("y", d => -size(+d.playcount))
-            // .on("mouseover", (event, d) => tooltip.style("opacity", 1))
             .on("click", (event, d) => {
                 setActiveArtist(d);
                 event.stopPropagation();
@@ -125,7 +114,7 @@ const TopArtists = () => {
     if (loading) return <div>Loading top artists...</div>;
 
     return (
-        <div style={{ position: "relative" }}>
+        <div className='relative'>
             <svg ref={svgRef}></svg>
             {activeArtist && (
                 <ArtistModal
