@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
+import ArtistModal from './ArtistModal';
 
 const TopArtists = () => {
     const [artists, setArtists] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [hoveredArtist, setHoveredArtist] = useState(null);
+    const [activeArtist, setActiveArtist] = useState(null);
     const svgRef = useRef(null);
     const hasInitialized = useRef(false);
 
@@ -49,15 +50,15 @@ const TopArtists = () => {
                 .attr("cy", 0);
         });
 
-        const tooltip = d3.select(svgRef.current.parentElement)
-            .append("div")
-            .attr("class", "tooltip")
-            .style("position", "absolute")
-            .style("opacity", 0)
-            .style("background", "white")
-            .style("border", "1px solid black")
-            .style("border-radius", "4px")
-            .style("padding", "6px");
+        // const tooltip = d3.select(svgRef.current.parentElement)
+        //     .append("div")
+        //     .attr("class", "tooltip")
+        //     .style("position", "absolute")
+        //     .style("opacity", 0)
+        //     .style("background", "white")
+        //     .style("border", "1px solid black")
+        //     .style("border-radius", "4px")
+        //     .style("padding", "6px");
 
         const size = d3.scaleSqrt()
             .domain([d3.min(artists, d => +d.playcount), d3.max(artists, d => +d.playcount)])
@@ -76,12 +77,10 @@ const TopArtists = () => {
             .attr("height", d => size(+d.playcount) * 2)
             .attr("x", d => -size(+d.playcount))
             .attr("y", d => -size(+d.playcount))
-            .on("mouseover", (event, d) => tooltip.style("opacity", 1))
-            .on("mouseover", (event, d) => {
-                setHoveredArtist(d);
-            })
-            .on("mouseleave", () => {
-                setHoveredArtist(null);
+            // .on("mouseover", (event, d) => tooltip.style("opacity", 1))
+            .on("click", (event, d) => {
+                setActiveArtist(d);
+                event.stopPropagation();
             });
 
         // Update each clipPath radius to match image
@@ -128,27 +127,13 @@ const TopArtists = () => {
     return (
         <div style={{ position: "relative" }}>
             <svg ref={svgRef}></svg>
-            {hoveredArtist && (
-                <div style={{
-                    position: "fixed",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    background: "white",
-                    border: "1px solid black",
-                    borderRadius: "8px",
-                    padding: "20px",
-                    zIndex: 1000,
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)"
-                }}>
-                    <h2>{hoveredArtist.name}</h2>
-                    <p>{hoveredArtist.playcount} plays</p>
-                    <img
-                        src={hoveredArtist.spotifyImage || "favicon.png"}
-                        alt={hoveredArtist.name}
-                        style={{ width: 100, height: 100, borderRadius: "50%" }}
-                    />
-                </div>
+            {activeArtist && (
+                <ArtistModal
+                    name={activeArtist.name}
+                    playcount={activeArtist.playcount}
+                    image={activeArtist.spotifyImage}
+                    closeModal={() => setActiveArtist(null)}
+                ></ArtistModal>
             )}
         </div>
     );
